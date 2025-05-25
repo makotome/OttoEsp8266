@@ -45,7 +45,7 @@ void ControllerServer::initServer()
   // server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
   //           { request->redirect("/controller"); });
 
-  static const size_t htmlContentLength = strlen_P(htmlContent);
+  static const size_t INDEX_HTMLLength = strlen_P(INDEX_HTML);
 
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
             {
@@ -53,5 +53,5 @@ void ControllerServer::initServer()
       Serial.printf("Who? %s\n", request->getParam("who")->value().c_str());
     }
 
-    request->send(200, "text/html", (uint8_t *)htmlContent, htmlContentLength); });
+    request->send(200, "text/html", (uint8_t *)INDEX_HTML, INDEX_HTMLLength); });
 }

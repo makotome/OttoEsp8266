@@ -75,6 +75,10 @@ void EspOtto::execute(int a[4], double phase[4], float steps = 1.0)
   }
 
   driveServos(a, phase, 1.0);
+
+  // 确保结束时回到中心位置
+  int homes[4] = {90, 90, 90, 90};
+  moveServos(500, homes);
 }
 
 void EspOtto::driveServos(int a[4], double phase[4], float cycle = 1.0)
