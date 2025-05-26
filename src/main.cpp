@@ -4,6 +4,7 @@
 #include <ESP8266WebServer.h>
 #include "Otto.h"
 #include "ControllerHtml.h"
+#include <ArduinoJson.h>
 
 const char *ssid = "tp-peace";
 const char *password = "xumingxin";
@@ -16,96 +17,19 @@ Otto ottoXX; // This is Otto!
 #define LeftFoot 14
 #define RightFoot 15
 #define Buzzer 5
-void playAll();
 
-void handleRoot()
-{
-    server.send(200, "text/html", INDEX_HTML);
-}
-
-void singRandom()
-{
-    int randomNum = random(1, 19); // 生成1到10之间的随机数
-    ottoXX.sing(randomNum);
-}
-
-void handleCommand(const String &command)
-{
-    // 设置CORS头
-    server.sendHeader("Access-Control-Allow-Origin", "*");
-    server.send(200, "text/plain", "OK");
-
-    singRandom();  // 随机唱歌
-    ottoXX.home(); // 回到初始位置
-    // 执行相应的命令
-    if (command == "forward")
-    {
-        ottoXX.walk(2, 1000, 1); // 2 steps, "TIME". IF HIGHER THE VALUE THEN SLOWER (from 600 to 1400), 1 FORWARD
-    }
-    else if (command == "backward")
-    {
-        ottoXX.walk(2, 1000, -1); // 2 steps, T, -1 BACKWARD
-    }
-    else if (command == "left")
-    {
-        ottoXX.turn(2, 1000, -1); // 3 steps turning LEFT
-    }
-    else if (command == "right")
-    {
-        ottoXX.turn(2, 1000, 1); // 3 steps turning RIGHT
-    }
-    else if (command == "stop")
-    {
-        ottoXX.home();
-    }
-    else if (command == "num1")
-    {
-        ottoXX.shakeLeg(1, 2000, -1);
-    }
-    else if (command == "num2")
-    {
-        ottoXX.moonwalker(3, 1000, 25, -1); // RIGHT
-    }
-    else if (command == "num3")
-    {
-        ottoXX.crusaito(2, 1000, 20, -1);
-    }
-    else if (command == "num4")
-    {
-        ottoXX.flapping(2, 1000, 20, -1);
-    }
-    else if (command == "num5")
-    {
-        ottoXX.swing(2, 1000, 20);
-    }
-    else if (command == "num6")
-    {
-        ottoXX.tiptoeSwing(2, 1000, 20);
-    }
-    else if (command == "num7")
-    {
-        ottoXX.jitter(2, 1000, 20); //(small T)
-    }
-    else if (command == "num8")
-    {
-        ottoXX.updown(2, 1500, 20); // 20 = H "HEIGHT of movement"T
-    }
-    else if (command == "num9")
-    {
-        ottoXX.jump(1, 500); // It doesn't really jumpl ;P
-    }
-    else
-    {
-        Serial.println("未知命令");
-    }
-    ottoXX.home(); // 回到初始位置
-}
+void handleAction(String command, int value);
+void handleCommand();
+void handleProgram();
+void handleRootPage();
+void handleProgramPage();
+void singRandom();
+void handleOPTIONS();
+void commandAction(String command);
 
 void setup()
 {
     Serial.begin(115200);
-
-    delay(1000);
 
     // 设置引脚模式
     ottoXX.init(LeftLeg, RightLeg, LeftFoot, RightFoot, true, Buzzer); // Set the servo pins and Buzzer pin
@@ -124,40 +48,12 @@ void setup()
     Serial.print("IP地址: ");
     Serial.println(WiFi.localIP());
 
-    // 设置Web服务器路由
-    server.on("/", HTTP_GET, handleRoot);
-
-    // 设置命令路由
-    server.on("/forward", HTTP_GET, []()
-              { handleCommand("forward"); });
-    server.on("/backward", HTTP_GET, []()
-              { handleCommand("backward"); });
-    server.on("/left", HTTP_GET, []()
-              { handleCommand("left"); });
-    server.on("/right", HTTP_GET, []()
-              { handleCommand("right"); });
-    server.on("/stop", HTTP_GET, []()
-              { handleCommand("stop"); });
-    server.on("/num1", HTTP_GET, []()
-              { handleCommand("num1"); });
-    server.on("/num2", HTTP_GET, []()
-              { handleCommand("num2"); });
-    server.on("/num3", HTTP_GET, []()
-              { handleCommand("num3"); });
-    server.on("/num4", HTTP_GET, []()
-              { handleCommand("num4"); });
-    server.on("/num5", HTTP_GET, []()
-              { handleCommand("num5"); });
-    server.on("/num6", HTTP_GET, []()
-              { handleCommand("num6"); });
-    server.on("/num7", HTTP_GET, []()
-              { handleCommand("num7"); });
-    server.on("/num8", HTTP_GET, []()
-              { handleCommand("num8"); });
-    server.on("/num9", HTTP_GET, []()
-              { handleCommand("num9"); });
-    server.onNotFound([]()
-                      { server.send(404, "text/plain", "404 Not Found"); });
+    // 添加路由处理
+    server.on("/program", HTTP_OPTIONS, handleOPTIONS);
+    server.on("/program", HTTP_POST, handleProgram);
+    // 设置路由
+    server.on("/command", HTTP_OPTIONS, handleOPTIONS);
+    server.on("/command", HTTP_POST, handleCommand);
 
     // 启动Web服务器
     server.begin();
@@ -169,36 +65,249 @@ void loop()
     server.handleClient();
 }
 
-void playAll()
+void handleRootPage()
 {
-    ottoXX.walk(2, 1000, 1);  // 2 steps, "TIME". IF HIGHER THE VALUE THEN SLOWER (from 600 to 1400), 1 FORWARD
-    ottoXX.walk(2, 1000, -1); // 2 steps, T, -1 BACKWARD
-    ottoXX.turn(2, 1000, 1);  // 3 steps turning LEFT
-    ottoXX._tone(10, 3, 1);
-    ottoXX.bendTones(100, 200, 1.04, 10, 10);
-    ottoXX.home();
-    delay(100);
-    ottoXX.turn(2, 1000, -1); // 3 steps turning RIGHT
-    ottoXX.bend(1, 500, 1);   // usually steps =1, T=2000
-    ottoXX.bend(1, 2000, -1);
-    ottoXX.shakeLeg(1, 1500, 1);
-    ottoXX.home();
-    delay(100);
-    ottoXX.shakeLeg(1, 2000, -1);
-    ottoXX.moonwalker(3, 1000, 25, 1);  // LEFT
-    ottoXX.moonwalker(3, 1000, 25, -1); // RIGHT
-    ottoXX.crusaito(2, 1000, 20, 1);
-    ottoXX.crusaito(2, 1000, 20, -1);
-    delay(100);
-    ottoXX.flapping(2, 1000, 20, 1);
-    ottoXX.flapping(2, 1000, 20, -1);
-    delay(100);
-    ottoXX.swing(2, 1000, 20);
-    ottoXX.tiptoeSwing(2, 1000, 20);
-    ottoXX.jitter(2, 1000, 20); //(small T)
-    ottoXX.updown(2, 1500, 20); // 20 = H "HEIGHT of movement"T
-    ottoXX.ascendingTurn(2, 1000, 50);
-    ottoXX.jump(1, 500); // It doesn't really jumpl ;P
-    ottoXX.home();
-    delay(100);
+    server.send(200, "text/html", INDEX_HTML);
+}
+
+void handleProgramPage()
+{
+    server.send(200, "text/html", PROGRAME_HTML);
+}
+
+void singRandom()
+{
+    int randomNum = random(1, 19); // 生成1到10之间的随机数
+    ottoXX.sing(randomNum);
+}
+
+// 处理预检请求的函数
+void handleOPTIONS()
+{
+    // 添加CORS相关的响应头
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.sendHeader("Access-Control-Allow-Methods", "POST,GET,OPTIONS");
+    server.sendHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    server.send(200, "text/plain", "");
+}
+
+// 处理机器人命令
+void handleCommand()
+{
+    // 添加CORS头
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.sendHeader("Access-Control-Allow-Methods", "POST,GET,OPTIONS");
+    server.sendHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+
+    if (server.method() == HTTP_POST)
+    {
+        String json = server.arg("plain");
+        StaticJsonDocument<200> doc;
+        DeserializationError error = deserializeJson(doc, json);
+
+        if (error)
+        {
+            // JSON解析错误处理
+            StaticJsonDocument<200> response;
+            response["success"] = false;
+            response["message"] = "无效的JSON格式";
+            String responseJson;
+            serializeJson(response, responseJson);
+            server.send(400, "application/json", responseJson);
+            return;
+        }
+
+        // 获取命令
+        const char *command = doc["command"];
+
+        commandAction(command);
+        delay(100); // 确保命令执行完成
+    }
+}
+
+// 处理程序的函数
+void handleProgram()
+{
+    // 添加CORS响应头
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.sendHeader("Access-Control-Allow-Methods", "POST,GET,OPTIONS");
+    server.sendHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+
+    if (server.method() == HTTP_POST)
+    {
+        if (server.hasArg("plain"))
+        {
+            String json = server.arg("plain");
+
+            // 创建 JSON 文档
+            JsonDocument doc;
+            DeserializationError error = deserializeJson(doc, json);
+
+            if (error)
+            {
+                Serial.println("JSON 解析失败");
+                server.send(400, "text/plain", "JSON 格式错误");
+                return;
+            }
+
+            // 发送成功响应
+            server.send(200, "text/plain", "OK");
+
+            // 顺序执行每个命令
+            JsonArray array = doc.as<JsonArray>();
+            for (JsonVariant v : array)
+            {
+                String command = v["command"].as<String>();
+                int commandValue = 2;
+                if (v["songValue"].is<int>())
+                {
+                    commandValue = v["songValue"].as<int>();
+                }
+                else if (v["steps"].is<int>())
+                {
+                    commandValue = v["steps"].as<int>();
+                }
+                // 执行命令
+                Serial.printf("执行命令: %s, 步数: %d\n", command.c_str(), commandValue);
+                handleAction(command, commandValue);
+                delay(100); // 命令之间的延迟
+            }
+        }
+        else
+        {
+            server.send(400, "text/plain", "缺少数据");
+        }
+    }
+    else
+    {
+        server.send(405, "text/plain", "方法不允许");
+    }
+}
+
+void handleAction(String command, int value = 2)
+{
+    // 设置CORS头
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.send(200, "text/plain", "OK");
+
+    actions(command, value); // 调用动作函数
+    Serial.printf("执行动作: %s, 步数: %d\n", command.c_str(), value);
+}
+
+void commandAction(String command)
+{
+    // 处理不同的命令
+    bool success = true;
+    String message = "命令执行成功";
+
+    // 返回响应
+    StaticJsonDocument<200> response;
+    response["success"] = success;
+    response["message"] = message;
+    String responseJson;
+    serializeJson(response, responseJson);
+    server.send(200, "application/json", responseJson);
+
+    if (command == "sing")
+    {
+    }
+    else if (command == "forward")
+    {
+        actions("forward", 4); // 前进4步
+    }
+}
+
+void actions(String command, int value = 2)
+{
+    ottoXX.home(); // 回到初始位置
+                   // 执行相应的命令
+    if (command == "sing")
+    {
+        ottoXX.sing(value); // value 是歌曲编号
+    }
+    else if (command == "forward")
+    {
+        ottoXX.walk(value, 1000, 1);
+    }
+    else if (command == "backward")
+    {
+        ottoXX.walk(value, 1000, -1);
+    }
+    else if (command == "left")
+    {
+        ottoXX.turn(value, 1000, -1);
+    }
+    else if (command == "right")
+    {
+        ottoXX.turn(value, 1000, 1);
+    }
+    else if (command == "stop")
+    {
+        ottoXX.home();
+    }
+    else if (command == "leftBend")
+    {
+        ottoXX.bend(value, 2000, 1);
+    }
+    else if (command == "rightBend")
+    {
+        ottoXX.bend(value, 2000, -1);
+    }
+    else if (command == "leftShake")
+    {
+        ottoXX.shakeLeg(value, 2000, 1);
+    }
+    else if (command == "rightShake")
+    {
+        ottoXX.shakeLeg(value, 2000, -1);
+    }
+    else if (command == "leftSpaceWalk")
+    {
+        ottoXX.moonwalker(value, 1000, 25, 1); // LEFT
+    }
+    else if (command == "rightSpaceWalk")
+    {
+        ottoXX.moonwalker(value, 1000, 25, -1); // RIGHT
+    }
+    else if (command == "leftFlap")
+    {
+        ottoXX.flapping(value, 1000, 20, 1);
+    }
+    else if (command == "rightFlap")
+    {
+        ottoXX.flapping(value, 1000, 20, -1);
+    }
+    else if (command == "leftCrusaito")
+    {
+        ottoXX.crusaito(value, 1000, 20, 1); // LEFT
+    }
+    else if (command == "rightCrusaito")
+    {
+        ottoXX.crusaito(value, 1000, 20, -1); // RIGHT
+    }
+    else if (command == "leftSwing")
+    {
+        ottoXX.swing(value, 1000, 20);
+    }
+    else if (command == "rightSwing")
+    {
+        ottoXX.tiptoeSwing(value, 1000, 20);
+    }
+    else if (command == "jitter")
+    {
+        ottoXX.jitter(value, 1000, 20); //(small T)
+    }
+    else if (command == "updown")
+    {
+        ottoXX.updown(value, 1500, 20); // 20 = H "HEIGHT of movement"T
+    }
+    else if (command == "ascendingTurn")
+    {
+        ottoXX.ascendingTurn(value, 1000, 50);
+    }
+    else
+    {
+        Serial.println("未知命令");
+    }
+    ottoXX.home(); // 回到初始位置
 }
