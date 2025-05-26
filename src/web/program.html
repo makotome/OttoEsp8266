@@ -232,7 +232,7 @@
     <div class="blocks-panel">
         <div class="ip-settings">
             <label for="ipHost">服务器地址：</label>
-            <input type="text" id="ipHost" value="192.168.0.107">
+            <input type="text" id="ipHost" value="pattyrobot.local">
             <button onclick="saveIP()" class="control-button">保存</button>
         </div>
         <h2>编程区域</h2>
@@ -356,7 +356,7 @@
         }
 
         function getServerIP() {
-            return localStorage.getItem('serverIP') || '192.168.0.107';
+            return localStorage.getItem('serverIP') || 'pattyrobot.local';
         }
 
         function initTouchEvents() {

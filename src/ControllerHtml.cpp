@@ -168,7 +168,7 @@ const char *INDEX_HTML PROGMEM = R"rawliteral(
 
 <body>
     <div class="control-panel">
-        <h1>Otto机器人遥控器</h1>
+        <h1>毛毛小七机器人遥控器</h1>
         <div class="ip-container">
             <input type="text" id="ipAddress" class="ip-input" placeholder="输入机器人IP地址" value="pattyrobot.local">
             <button onclick="saveIP()" class="save-ip">保存IP</button>

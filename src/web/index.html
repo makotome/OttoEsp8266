@@ -164,9 +164,9 @@
 
 <body>
     <div class="control-panel">
-        <h1>Otto机器人遥控器</h1>
+        <h1>毛毛小七机器人遥控器</h1>
         <div class="ip-container">
-            <input type="text" id="ipAddress" class="ip-input" placeholder="输入机器人IP地址">
+            <input type="text" id="ipAddress" class="ip-input" placeholder="输入机器人IP地址" value="pattyrobot.local">
             <button onclick="saveIP()" class="save-ip">保存IP</button>
         </div>
         <div id="status" class="status"></div>
@@ -219,7 +219,7 @@
 
         // 从localStorage加载保存的IP
         window.onload = function () {
-            const savedIP = localStorage.getItem('robotIP');
+            const savedIP = localStorage.getItem('robotIP') || 'pattyrobot.local';
             if (savedIP) {
                 document.getElementById('ipAddress').value = savedIP;
                 baseUrl = `http://${savedIP}`;
