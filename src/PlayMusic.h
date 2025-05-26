@@ -1,4 +1,6 @@
-#include <Otto_sounds.h>
+#ifndef PlayMusic_h
+#define PlayMusic_h
+
 #include <Otto.h>
 
 class PlayMusic
@@ -9,3 +11,5 @@ public:
     void playGirlSong(Otto *ottox);
     void playRandomSong(Otto *ottox);
 };
+
+#endif

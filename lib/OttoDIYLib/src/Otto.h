@@ -12,6 +12,7 @@
 #include "Otto_gestures.h"
 #include "Otto_mouths.h"
 #include "Otto_matrix.h"
+#include <ESP8266WebServer.h>
 
 //-- Constants
 #define FORWARD 1
@@ -86,8 +87,12 @@ public:
   // -- Servo limiter
   void enableServoLimit(int speed_limit_degree_per_sec = SERVO_LIMIT_DEFAULT);
   void disableServoLimit();
+  void interrupt();      // 中断当前动作
+  bool isInterrupted();  // 获取中断状态
+  void clearInterrupt(); // 清除中断标志
 
 private:
+  volatile bool _isInterrupted; // 中断标志
   Oscillator servo[4];
   Otto_Matrix ledmatrix;
   int servo_pins[4];

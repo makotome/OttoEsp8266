@@ -9,7 +9,6 @@
 
 void Otto::init(int YL, int YR, int RL, int RR, bool load_calibration, int Buzzer)
 {
-
   servo_pins[0] = YL;
   servo_pins[1] = YR;
   servo_pins[2] = RL;
@@ -32,6 +31,7 @@ void Otto::init(int YL, int YR, int RL, int RR, bool load_calibration, int Buzze
   // Buzzer pin:
   pinBuzzer = Buzzer;
   pinMode(Buzzer, OUTPUT);
+  clearInterrupt();
 }
 ///////////////////////////////////////////////////////
 void Otto::initMATRIX(int DIN, int CS, int CLK, int rotate)
@@ -82,6 +82,22 @@ void Otto::saveTrimsOnEEPROM()
   }
 }
 
+// 添加中断相关方法实现
+void Otto::interrupt()
+{
+  _isInterrupted = true;
+}
+
+bool Otto::isInterrupted()
+{
+  return _isInterrupted;
+}
+
+void Otto::clearInterrupt()
+{
+  _isInterrupted = false;
+}
+
 ///////////////////////////////////////////////////////////////////
 //-- BASIC MOTION FUNCTIONS -------------------------------------//
 ///////////////////////////////////////////////////////////////////
@@ -100,13 +116,19 @@ void Otto::_moveServos(int time, int servo_target[])
     for (int i = 0; i < 4; i++)
       increment[i] = (servo_target[i] - servo[i].getPosition()) / (time / 10.0);
 
-    for (int iteration = 1; millis() < final_time; iteration++)
+    // for (int iteration = 1; millis() < final_time; iteration++)
+    while (millis() < final_time && !_isInterrupted)
     {
       partial_time = millis() + 10;
       for (int i = 0; i < 4; i++)
+      {
         servo[i].SetPosition(servo[i].getPosition() + increment[i]);
-      while (millis() < partial_time)
-        ; // pause
+      }
+
+      while (millis() < partial_time && !_isInterrupted)
+      {
+        yield(); // 等待直到中断完成
+      }
     }
   }
   else
@@ -114,7 +136,7 @@ void Otto::_moveServos(int time, int servo_target[])
     for (int i = 0; i < 4; i++)
       servo[i].SetPosition(servo_target[i]);
     while (millis() < final_time)
-      ; // pause
+      yield(); // 等待直到中断完成
   }
 
   // final adjustment to the target. if servo speed limiter is turned on, reaching to the goal may take longer than
@@ -139,9 +161,9 @@ void Otto::_moveServos(int time, int servo_target[])
       }
       partial_time = millis() + 10;
       while (millis() < partial_time)
-        ; // pause
+        yield(); // 等待直到中断完成
     }
-  };
+  }
 }
 
 void Otto::_moveSingle(int position, int servo_number)
@@ -185,12 +207,15 @@ void Otto::oscillateServos(int A[4], int O[4], int T, double phase_diff[4], floa
     servo[i].SetPh(phase_diff[i]);
   }
   double ref = millis();
-  for (double x = ref; x <= T * cycle + ref; x = millis())
+  double finalTime = ref + T * cycle;
+
+  while (millis() <= finalTime && !_isInterrupted)
   {
     for (int i = 0; i < 4; i++)
     {
       servo[i].refresh();
     }
+    yield(); // 等待直到中断完成
   }
 }
 
@@ -661,6 +686,8 @@ void Otto::writeText(const char *s, byte scrollspeed)
 
 void Otto::_tone(float noteFrequency, long noteDuration, int silentDuration)
 {
+  if (_isInterrupted)
+    return;
 
   // tone(10,261,500);
   // delay(500);
@@ -671,9 +698,23 @@ void Otto::_tone(float noteFrequency, long noteDuration, int silentDuration)
   }
 
   tone(Otto::pinBuzzer, noteFrequency, noteDuration);
-  delay(noteDuration); // milliseconds to microseconds
-  // noTone(PIN_Buzzer);
-  delay(silentDuration);
+
+  // 等待音符持续时间
+  long startTime = millis();
+  while (millis() - startTime < noteDuration && !_isInterrupted)
+  {
+    yield(); // 等待直到中断完成
+  }
+
+  // 如果有静默时间，等待指定的时间
+  if (!_isInterrupted && silentDuration > 0)
+  {
+    startTime = millis();
+    while (millis() - startTime < silentDuration && !_isInterrupted)
+    {
+      yield(); // 等待直到中断完成
+    }
+  }
 }
 
 void Otto::bendTones(float initFrequency, float finalFrequency, float prop, long noteDuration, int silentDuration)

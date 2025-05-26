@@ -170,7 +170,7 @@ const char *INDEX_HTML PROGMEM = R"rawliteral(
     <div class="control-panel">
         <h1>Otto机器人遥控器</h1>
         <div class="ip-container">
-            <input type="text" id="ipAddress" class="ip-input" placeholder="输入机器人IP地址">
+            <input type="text" id="ipAddress" class="ip-input" placeholder="输入机器人IP地址" value="pattyrobot.local">
             <button onclick="saveIP()" class="save-ip">保存IP</button>
         </div>
         <div id="status" class="status"></div>
@@ -223,7 +223,7 @@ const char *INDEX_HTML PROGMEM = R"rawliteral(
 
         // 从localStorage加载保存的IP
         window.onload = function () {
-            const savedIP = localStorage.getItem('robotIP');
+            const savedIP = localStorage.getItem('robotIP') || 'pattyrobot.local';
             if (savedIP) {
                 document.getElementById('ipAddress').value = savedIP;
                 baseUrl = `http://${savedIP}`;
@@ -301,8 +301,26 @@ const char *INDEX_HTML PROGMEM = R"rawliteral(
             window.location.href = `${baseUrl}/programming`;
         }
 
-        // 添加键盘事件支持
+        // 修改键盘事件处理
+        let isInputFocused = false;
+        const ipInput = document.getElementById('ipAddress');
+
+        // 添加输入框焦点事件
+        ipInput.addEventListener('focus', () => {
+            isInputFocused = true;
+        });
+
+        ipInput.addEventListener('blur', () => {
+            isInputFocused = false;
+        });
+
+        // 修改键盘事件支持
         document.addEventListener('keydown', function (event) {
+            // 如果输入框正在输入，不处理键盘事件
+            if (isInputFocused) {
+                return;
+            }
+
             const key = event.key.toLowerCase();
             const keyMap = {
                 'arrowup': 'forward',
@@ -336,6 +354,7 @@ const char *INDEX_HTML PROGMEM = R"rawliteral(
         });
     </script>
 </body>
+
 </html>
 )rawliteral";
 
@@ -537,6 +556,36 @@ const char *PROGRAME_HTML PROGMEM = R"rawliteral(
             color: #a94442;
             display: block;
         }
+
+        /* 优化触摸体验的样式 */
+        .block,
+        .program-item {
+            touch-action: none;
+            /* 防止触摸时的默认行为 */
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            padding: 15px;
+            /* 增大点击区域 */
+        }
+
+        .control-button {
+            min-height: 44px;
+            /* 确保按钮足够大，易于点击 */
+            min-width: 44px;
+            padding: 12px 24px;
+        }
+
+        /* 为触摸设备优化输入控件 */
+        input[type="number"],
+        select {
+            min-height: 40px;
+            min-width: 60px;
+            padding: 8px;
+            font-size: 16px;
+            /* 防止 iOS 自动缩放 */
+        }
     </style>
 </head>
 
@@ -544,7 +593,7 @@ const char *PROGRAME_HTML PROGMEM = R"rawliteral(
     <div class="blocks-panel">
         <div class="ip-settings">
             <label for="ipHost">服务器地址：</label>
-            <input type="text" id="ipHost" value="192.168.0.107">
+            <input type="text" id="ipHost" value="pattyrobot.local">
             <button onclick="saveIP()" class="control-button">保存</button>
         </div>
         <h2>编程区域</h2>
@@ -668,7 +717,113 @@ const char *PROGRAME_HTML PROGMEM = R"rawliteral(
         }
 
         function getServerIP() {
-            return localStorage.getItem('serverIP') || '192.168.0.107';
+            return localStorage.getItem('serverIP') || 'pattyrobot.local';
+        }
+
+        function initTouchEvents() {
+            const blocks = document.querySelectorAll('.block');
+            const programArea = document.getElementById('program-area');
+            let draggedElement = null;
+            let touchOffset = { x: 0, y: 0 };
+
+            blocks.forEach(block => {
+                block.addEventListener('touchstart', handleTouchStart, { passive: false });
+                block.addEventListener('touchmove', handleTouchMove, { passive: false });
+                block.addEventListener('touchend', handleTouchEnd);
+            });
+
+            function handleTouchStart(e) {
+                const input = e.target.closest('input');
+                const select = e.target.closest('select');
+                if (input || select) {
+                    return;
+                }
+
+                e.preventDefault();
+                const touch = e.touches[0];
+                const block = e.target.closest('.block');
+
+                if (block) {
+                    draggedElement = block.cloneNode(true);
+                    draggedElement.style.position = 'fixed';
+                    draggedElement.style.opacity = '0.8';
+                    draggedElement.style.zIndex = '1000';
+                    draggedElement.style.width = block.offsetWidth + 'px';
+
+                    const rect = block.getBoundingClientRect();
+                    touchOffset.x = touch.clientX - rect.left;
+                    touchOffset.y = touch.clientY - rect.top;
+
+                    document.body.appendChild(draggedElement);
+                    updateDraggedPosition(touch);
+                }
+            }
+
+            function handleTouchMove(e) {
+                if (!draggedElement) return;
+
+                e.preventDefault();
+                const touch = e.touches[0];
+                updateDraggedPosition(touch);
+
+                const programRect = programArea.getBoundingClientRect();
+                if (isInElement(touch, programRect)) {
+                    programArea.classList.add('dragover');
+                } else {
+                    programArea.classList.remove('dragover');
+                }
+            }
+
+            function handleTouchEnd(e) {
+                if (!draggedElement) return;
+
+                e.preventDefault();
+                const touch = e.changedTouches[0];
+                const programRect = programArea.getBoundingClientRect();
+
+                if (isInElement(touch, programRect)) {
+                    const originalBlock = e.target.closest('.block');
+                    if (originalBlock) {
+                        const data = extractBlockData(originalBlock);
+                        const item = createProgramItem(data);
+
+                        if (programArea.querySelector('.placeholder')) {
+                            programArea.innerHTML = '';
+                        }
+                        programArea.appendChild(item);
+                        showStatus('添加成功');
+                    }
+                }
+
+                draggedElement.remove();
+                draggedElement = null;
+                programArea.classList.remove('dragover');
+            }
+
+            function updateDraggedPosition(touch) {
+                if (draggedElement) {
+                    draggedElement.style.left = (touch.clientX - touchOffset.x) + 'px';
+                    draggedElement.style.top = (touch.clientY - touchOffset.y) + 'px';
+                }
+            }
+
+            function isInElement(touch, rect) {
+                return touch.clientX >= rect.left &&
+                    touch.clientX <= rect.right &&
+                    touch.clientY >= rect.top &&
+                    touch.clientY <= rect.bottom;
+            }
+
+            function extractBlockData(block) {
+                return {
+                    command: block.dataset.command,
+                    text: block.childNodes[0].textContent.trim(),
+                    type: block.classList.contains('song-block') ? 'song' :
+                        block.classList.contains('movement-block') ? 'movement' : 'action',
+                    songValue: block.querySelector('select')?.value,
+                    steps: block.querySelector('input')?.value || '2'
+                };
+            }
         }
 
         function initDragAndDrop() {
@@ -772,7 +927,6 @@ const char *PROGRAME_HTML PROGMEM = R"rawliteral(
             }
         }
 
-        // 修改创建程序项函数
         function createProgramItem(data) {
             const div = document.createElement('div');
             div.className = `program-item ${data.type}`;
@@ -796,7 +950,55 @@ const char *PROGRAME_HTML PROGMEM = R"rawliteral(
             }
 
             div.dataset.command = data.command;
-            div.draggable = true;
+
+            // 添加触摸拖动排序支持
+            let touchStartY = 0;
+            let originalIndex = 0;
+
+            div.addEventListener('touchstart', e => {
+                const input = e.target.closest('input');
+                const select = e.target.closest('select');
+                const button = e.target.closest('button');
+                if (input || select || button) return;
+
+                e.preventDefault();
+                touchStartY = e.touches[0].clientY;
+                div.style.opacity = '0.7';
+                div.style.transform = 'scale(1.02)';
+                originalIndex = Array.from(div.parentNode.children).indexOf(div);
+            }, { passive: false });
+
+            div.addEventListener('touchmove', e => {
+                if (touchStartY === 0) return;
+
+                e.preventDefault();
+                const touch = e.touches[0];
+                const items = Array.from(div.parentNode.children);
+                const currentIndex = items.indexOf(div);
+
+                items.forEach((item, index) => {
+                    if (item === div) return;
+
+                    const rect = item.getBoundingClientRect();
+                    if (touch.clientY > rect.top && touch.clientY < rect.bottom) {
+                        if (currentIndex < index) {
+                            item.parentNode.insertBefore(item, div);
+                        } else {
+                            item.parentNode.insertBefore(div, item);
+                        }
+                    }
+                });
+            }, { passive: false });
+
+            div.addEventListener('touchend', e => {
+                if (touchStartY === 0) return;
+
+                e.preventDefault();
+                touchStartY = 0;
+                div.style.opacity = '';
+                div.style.transform = '';
+            });
+
             return div;
         }
 
@@ -868,5 +1070,6 @@ const char *PROGRAME_HTML PROGMEM = R"rawliteral(
         document.addEventListener('DOMContentLoaded', initDragAndDrop);
     </script>
 </body>
+
 </html>
 )rawliteral";

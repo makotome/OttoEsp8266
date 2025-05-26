@@ -2,6 +2,7 @@
 #include <Servo.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
+#include <ESP8266mDNS.h>
 #include "Otto.h"
 #include "PlayMusic.h"
 #include "ControllerHtml.h"
@@ -51,6 +52,17 @@ void setup()
     Serial.print("IP地址: ");
     Serial.println(WiFi.localIP());
 
+    // WiFi连接成功后
+    if (MDNS.begin("pattyrobot"))
+    { // 设置域名为 pattyrobot.local
+        Serial.println("MDNS responder已启动");
+        Serial.println("可以通过 http://pattyrobot.local 访问");
+    }
+    else
+    {
+        Serial.println("MDNS responder启动失败!");
+    }
+
     // 设置Web服务器路由
     server.on("/", HTTP_GET, handleRootPage);               // 处理根路径请求
     server.on("/programming", HTTP_GET, handleProgramPage); // 处理程序页面请求
@@ -69,7 +81,9 @@ void setup()
 
 void loop()
 {
+    MDNS.update(); // 添加这行来更新MDNS
     server.handleClient();
+    yield();
 }
 
 void handleRootPage()
@@ -109,13 +123,13 @@ void handleCommand()
     if (server.method() == HTTP_POST)
     {
         String json = server.arg("plain");
-        StaticJsonDocument<200> doc;
+        JsonDocument doc;
         DeserializationError error = deserializeJson(doc, json);
 
         if (error)
         {
             // JSON解析错误处理
-            StaticJsonDocument<200> response;
+            JsonDocument response;
             response["success"] = false;
             response["message"] = "无效的JSON格式";
             String responseJson;
@@ -208,7 +222,7 @@ void commandAction(String command)
     String message = "命令执行成功";
 
     // 返回响应
-    StaticJsonDocument<200> response;
+    JsonDocument response;
     response["success"] = success;
     response["message"] = message;
     String responseJson;
@@ -217,7 +231,7 @@ void commandAction(String command)
 
     if (command == "sing")
     {
-        playMusic.playGirlSong(&ottoXX); // 唱歌
+        playMusic.playRandomSong(&ottoXX); // 唱歌
     }
     else if (command == "forward")
     {
@@ -241,20 +255,12 @@ void commandAction(String command)
     }
     else if (command = "dance")
     {
-        actions("leftBend", 2);       // 左弯曲
-        actions("rightBend", 2);      // 右弯曲
         actions("leftShake", 2);      // 左摇摆
         actions("rightShake", 2);     // 右摇摆
         actions("leftSpaceWalk", 2);  // 左太空步
         actions("rightSpaceWalk", 2); // 右太空步
-        actions("leftFlap", 2);       // 左拍打
-        actions("rightFlap", 2);      // 右拍打
         actions("leftCrusaito", 2);   // 左十字架动作
         actions("rightCrusaito", 2);  // 右十字架动作
-        actions("leftSwing", 2);      // 左摆动
-        actions("rightSwing", 2);     // 右摆动
-        actions("jitter", 2);         // 抖动
-        actions("updown", 2);         // 上下动作
     }
     else if (command == "ascendingTurn")
     {
@@ -298,6 +304,13 @@ void actions(String command, int value = 2)
     }
     else if (command == "stop")
     {
+        ottoXX.interrupt(); // 这会导致当前动作停止执行
+        unsigned long endTime = millis() + 1000;
+        while (millis() < endTime)
+        {
+            yield(); // 等待直到中断完成
+        }
+        ottoXX.clearInterrupt(); // 清除之前的中断标志
         ottoXX.home();
     }
     else if (command == "leftBend")

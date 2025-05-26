@@ -297,8 +297,26 @@
             window.location.href = `${baseUrl}/programming`;
         }
 
-        // 添加键盘事件支持
+        // 修改键盘事件处理
+        let isInputFocused = false;
+        const ipInput = document.getElementById('ipAddress');
+
+        // 添加输入框焦点事件
+        ipInput.addEventListener('focus', () => {
+            isInputFocused = true;
+        });
+
+        ipInput.addEventListener('blur', () => {
+            isInputFocused = false;
+        });
+
+        // 修改键盘事件支持
         document.addEventListener('keydown', function (event) {
+            // 如果输入框正在输入，不处理键盘事件
+            if (isInputFocused) {
+                return;
+            }
+
             const key = event.key.toLowerCase();
             const keyMap = {
                 'arrowup': 'forward',
