@@ -3,6 +3,7 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include "Otto.h"
+#include "PlayMusic.h"
 #include "ControllerHtml.h"
 #include <ArduinoJson.h>
 
@@ -10,7 +11,8 @@ const char *ssid = "tp-peace";
 const char *password = "xumingxin";
 ESP8266WebServer server(80);
 
-Otto ottoXX; // This is Otto!
+Otto ottoXX;         // This is Otto!
+PlayMusic playMusic; // This is the music player
 
 #define LeftLeg 12
 #define RightLeg 13
@@ -26,6 +28,7 @@ void handleProgramPage();
 void singRandom();
 void handleOPTIONS();
 void commandAction(String command);
+void actions(String command, int value);
 
 void setup()
 {
@@ -47,6 +50,10 @@ void setup()
     Serial.println("\nWiFi连接成功");
     Serial.print("IP地址: ");
     Serial.println(WiFi.localIP());
+
+    // 设置Web服务器路由
+    server.on("/", HTTP_GET, handleRootPage);               // 处理根路径请求
+    server.on("/programming", HTTP_GET, handleProgramPage); // 处理程序页面请求
 
     // 添加路由处理
     server.on("/program", HTTP_OPTIONS, handleOPTIONS);
@@ -210,10 +217,58 @@ void commandAction(String command)
 
     if (command == "sing")
     {
+        playMusic.playGirlSong(&ottoXX); // 唱歌
     }
     else if (command == "forward")
     {
         actions("forward", 4); // 前进4步
+    }
+    else if (command == "backward")
+    {
+        actions("backward", 4); // 后退4步
+    }
+    else if (command == "left")
+    {
+        actions("left", 4); // 左转4步
+    }
+    else if (command == "right")
+    {
+        actions("right", 4); // 右转4步
+    }
+    else if (command == "stop")
+    {
+        actions("stop", 2); // 停止动作
+    }
+    else if (command = "dance")
+    {
+        actions("leftBend", 2);       // 左弯曲
+        actions("rightBend", 2);      // 右弯曲
+        actions("leftShake", 2);      // 左摇摆
+        actions("rightShake", 2);     // 右摇摆
+        actions("leftSpaceWalk", 2);  // 左太空步
+        actions("rightSpaceWalk", 2); // 右太空步
+        actions("leftFlap", 2);       // 左拍打
+        actions("rightFlap", 2);      // 右拍打
+        actions("leftCrusaito", 2);   // 左十字架动作
+        actions("rightCrusaito", 2);  // 右十字架动作
+        actions("leftSwing", 2);      // 左摆动
+        actions("rightSwing", 2);     // 右摆动
+        actions("jitter", 2);         // 抖动
+        actions("updown", 2);         // 上下动作
+    }
+    else if (command == "ascendingTurn")
+    {
+        actions("ascendingTurn", 4); // 上升转弯4步
+    }
+    else if (command == "randomSong")
+    {
+        singRandom(); // 随机歌曲
+    }
+    else
+    {
+        Serial.println("未知命令");
+        success = false;
+        message = "未知命令";
     }
 }
 

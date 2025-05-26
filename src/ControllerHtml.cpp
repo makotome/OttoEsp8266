@@ -227,9 +227,6 @@ const char *INDEX_HTML PROGMEM = R"rawliteral(
             if (savedIP) {
                 document.getElementById('ipAddress').value = savedIP;
                 baseUrl = `http://${savedIP}`;
-            } else {
-                // 如果没有保存的IP，则使用默认值localhost
-                document.getElementById('ipAddress').value = 'localhost';
             }
         }
 
@@ -262,16 +259,27 @@ const char *INDEX_HTML PROGMEM = R"rawliteral(
             const originalColor = button.style.backgroundColor;
             button.style.opacity = '0.7';
 
-            fetch(`${baseUrl}/${command}`)
+            // 创建请求数据
+            const data = {
+                command: command
+            };
+
+            fetch(`${baseUrl}/command`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
                 .then(response => {
                     if (!response.ok) {
                         throw new Error('网络请求失败');
                     }
-                    return response.text();
+                    return response.json();
                 })
                 .then(data => {
                     console.log('成功:', data);
-                    showStatus('命令已发送');
+                    showStatus(data.message || '命令已发送');
                     setTimeout(() => {
                         button.style.opacity = '1';
                     }, 200);
@@ -636,7 +644,7 @@ const char *PROGRAME_HTML PROGMEM = R"rawliteral(
             <div class="placeholder">拖动左侧积木块到这里开始编程</div>
         </div>
         <div class="program-controls">
-            <button onclick="location.href='index.html'" class="control-button back-button">返回控制面板</button>
+            <button onclick="location.href='/'" class="control-button back-button">返回控制面板</button>
             <button onclick="startProgram()" class="control-button start-button">开始执行</button>
             <button onclick="clearProgram()" class="control-button clear-button">清除</button>
         </div>

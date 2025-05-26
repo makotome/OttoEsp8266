@@ -224,7 +224,7 @@ void Otto::home()
   { // Go to rest position only if necessary
 
     int homes[4] = {90, 90, 90, 90}; // All the servos at rest position
-    _moveServos(500, homes);         // Move the servos in half a second
+    _moveServos(1000, homes);        // Move the servos in one second
 
     detachServos();
     isOttoResting = true;
